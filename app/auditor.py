@@ -111,7 +111,7 @@ class EC2Auditor:
         BLOCKING: Checks if Port 22 is open to 0.0.0.0/0
         """
         try:
-            # We need to fetch the specific SG details to see permissions
+            # fetch the specific SG details to see permissions
             response = self.ec2_client.describe_security_groups(GroupIds=[group_id])
             sg = response['SecurityGroups'][0]
             permissions = sg.get('IpPermissions', [])

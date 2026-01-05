@@ -1,9 +1,10 @@
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, BackgroundTasks
+from fastapi import FastAPI, Depends, BackgroundTasks, Security
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from sqlmodel import select, col, delete
+from app.security import get_api_key
 
 from app.database import init_db, get_session
 from app.models import AuditResult
@@ -25,7 +26,7 @@ app = FastAPI(title="Cloud Resource Auditor", lifespan=lifespan)
 async def health_check():
     return {"status": "ok", "service": "Cloud Resource Auditor"}
 
-@app.get("/audit-results/", response_model=List[AuditResult])
+@app.get("/audit-results/", response_model=List[AuditResult],dependencies=[Security(get_api_key)])
 async def get_audit_results(
     service: Optional[str] = None,
     compliant: Optional[bool] = None,
@@ -49,8 +50,7 @@ async def get_audit_results(
     result = await session.execute(query)
     return result.scalars().all()
     
-
-@app.post("/audit/run-full-scan", status_code=202)
+@app.post("/audit/run-full-scan", status_code=202,dependencies=[Security(get_api_key)])
 async def run_full_cloud_scan(background_tasks: BackgroundTasks):
     """
     Triggers a full background scan of ALL configured AWS services (S3, IAM, etc.).
@@ -58,7 +58,7 @@ async def run_full_cloud_scan(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_full_audit)
     return {"message": "Full cloud audit started in background."}
 
-@app.post("/audit/s3/{bucket_name}", response_model=AuditResult)
+@app.post("/audit/s3/{bucket_name}", response_model=AuditResult,dependencies=[Security(get_api_key)])
 async def audit_s3_bucket(
     bucket_name: str, 
     session: AsyncSession = Depends(get_session)
@@ -101,7 +101,7 @@ async def get_audit_stats(session: AsyncSession = Depends(get_session)):
         "compliance_score_percent": compliance_score
     }
 
-@app.delete("/audit-results/clear")
+@app.delete("/audit-results/clear", dependencies=[Security(get_api_key)])
 async def clear_audit_results(session: AsyncSession = Depends(get_session)):
     statement = delete(AuditResult)
     await session.execute(statement)
