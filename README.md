@@ -1,16 +1,13 @@
 # Cloud Resource Auditor (CSPM Lite) ☁️ 
 
-A lightweight Cloud Security Posture Management (CSPM) platform built with FastAPI and Python. This application scans AWS infrastructure (S3, IAM, EC2) for security misconfigurations, persists findings in a PostgreSQL database, and provides a REST API for reporting and compliance scoring.
+A robust, asynchronous Cloud Security Posture Management (CSPM) platform built with FastAPI. This application scans AWS infrastructure (S3, IAM, EC2) for security misconfigurations, persists findings in PostgreSQL, and provides a REST API for compliance reporting.
 
-    Project Goal: To bridge the gap between Infrastructure Engineering and Backend Development by building a scalable, asynchronous auditing engine.
+    Key Differentiator: Built with a non-blocking architecture using asyncio for the API and threaded workers for blocking AWS Boto3 calls.
 
 ### Architecture
-
-This project uses a non-blocking asynchronous architecture. Since AWS Boto3 calls are synchronous (blocking), they are offloaded to background threads to ensure the FastAPI event loop remains responsive.
-
 ```
 graph LR
-    User[User/Client] -->|POST /scan| API[FastAPI Server]
+    User[User/Client] -->|X-API-Key| API[FastAPI Server]
     API -->|Ack 202| User
     API -->|Trigger| BG[Background Task Worker]
     
@@ -32,31 +29,34 @@ graph LR
 
 - Multi-Service Auditing:
 
-    -  S3: Checks if Bucket Versioning is enabled (Data Protection).
+    - S3: Detects disabled Bucket Versioning.
 
-    - IAM: Checks if Users have MFA enabled (Access Control).
+    - IAM: Flags users without MFA enabled.
 
-    - EC2: Checks if Security Groups allow SSH (Port 22) from 0.0.0.0/0 (Network Security).
+    - EC2: Identifies Security Groups with Port 22 (SSH) open to the world (0.0.0.0/0).
 
-- Asynchronous Processing: Long-running scans happen in the background without freezing the API.
+- Secure by Design: API Key authentication using Dependency Injection.
 
-- Data Persistence: All audit results are stored in PostgreSQL using SQLModel (SQLAlchemy + Pydantic).
-
+- Asynchronous Workers: Scans run in the background without blocking the main event loop.
 - Analytics: Dedicated endpoints for compliance scores and filtering results (Pass/Fail).
+
+- Containerized: Fully Dockerized with docker-compose for one-command deployment.
+
+- Test Coverage: Comprehensive Unit and Integration tests using pytest and unittest.mock.
+
+- CI/CD: Automated testing pipeline via GitHub Actions.
 
 ###  Tech Stack
 
-- Language: Python 3.10+
+- Core: Python 3.12, FastAPI
 
-- Framework: FastAPI (ASGI)
+- Database: PostgreSQL (Asyncpg + SQLModel)
 
-- Database: PostgreSQL (Asyncpg driver)
+- Infrastructure: Docker, Docker Compose
 
-- ORM: SQLModel
+- AWS SDK: Boto3
 
-- Cloud SDK: AWS Boto3
-
-- Task Management: FastAPI BackgroundTasks & asyncio
+- Testing: Pytest, HTTPX
 
 ###  Getting Started
 Prerequisites
@@ -70,35 +70,41 @@ Prerequisites
 1. Clone & Setup
 
 ```bash
-git clone https://github.com/yourusername/cloud-resource-auditor.git
+git clone https://github.com/oyewoledavid/security-auditor
 cd cloud-resource-auditor
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install "fastapi[all]" sqlmodel asyncpg boto3 pydantic-settings
 ```
 2. Configure Environment
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory, you most provide AWS Credentials:
 ```
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/auditor_db
+DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/auditor_db
 AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+API_KEY=my-secret-key-123
 ```
 Ensure you have a database named auditor_db created in Postgres.
 
-3. Run the Server
+3. Run with Docker Compose
 ```bash
-uvicorn app.main:app --reload
+docker compose up --build
 ```
 The server will start at http://127.0.0.1:8000.
+
+### Running Tests
+
+This project enforces code quality via Pytest. To run tests locally (outside Docker):
+```bash
+pip install pytest pytest-asyncio httpx
+pytest -v
+```
+`Note: The tests use Mocks and do NOT make real calls to AWS.`
 
 ###  API Usage
 Interactive Docs
 
-Visit http://127.0.0.1:8000/docs to see the Swagger UI.  
+Visit http://127.0.0.1:8000/docs to see the Swagger UI. 
+
 #### Key Endpoints  
 
 | Method | Endpoint | Description |
@@ -109,10 +115,6 @@ Visit http://127.0.0.1:8000/docs to see the Swagger UI.
 | **POST** | `/audit/s3/{bucket_name}` | Audit a single specific bucket immediately. |
 
 ###  Future Roadmap
-
-- [ ] Containerization: Docker & Docker Compose setup.
-
-- [ ] Authentication: API Key or JWT implementation for secure access.
 
 - [ ] Frontend: A simple React dashboard to visualize the Compliance Score.
 
